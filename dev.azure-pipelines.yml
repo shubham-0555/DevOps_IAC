@@ -1,0 +1,103 @@
+trigger: none
+
+pool:
+  vmImage: ubuntu-latest
+
+parameters:
+- name: image
+  displayName: Pool Image
+  values:
+  - ubuntu-latest
+  - macOS-latest
+
+variables:
+  WORK_DIR: '$(System.DefaultWorkingDirectory)/ENV/DEV'
+  BACKEND_NAME: 'Durgesh-DevOps'
+  RESOURCE_GROUP: 'Pipeline'
+  STORAGE_ACCOUNT: 'storagedevopsyatra'
+  CONTAINER_NAME: 'statefile1'
+  FILE_KEY: 'backup'
+
+stages:
+- stage: TFSEC
+  displayName: TFSEC
+  jobs:
+  - job: TFSEC
+    displayName: TFSEC
+    steps:
+    - task: tfsec@1
+      inputs:
+        version: 'v1.26.0'
+    
+- stage: INIT
+  displayName: terraform init
+  jobs:
+  - job: INIT
+    displayName: terraform init
+    steps:
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: $(WORK_DIR)
+        backendServiceArm: $(BACKEND_NAME)
+        backendAzureRmResourceGroupName: $(RESOURCE_GROUP)
+        backendAzureRmStorageAccountName: $(STORAGE_ACCOUNT)
+        backendAzureRmContainerName: $(CONTAINER_NAME)
+        backendAzureRmKey: $(FILE_KEY)
+
+- stage: plan
+  displayName: terraform plan
+  jobs:
+  - job: plan
+    displayName: terraform plan
+    steps:
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: $(WORK_DIR)
+        backendServiceArm: $(BACKEND_NAME)
+        backendAzureRmResourceGroupName: $(RESOURCE_GROUP)
+        backendAzureRmStorageAccountName: $(STORAGE_ACCOUNT)
+        backendAzureRmContainerName: $(CONTAINER_NAME)
+        backendAzureRmKey: $(FILE_KEY)
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        workingDirectory: $(WORK_DIR)
+        environmentServiceNameAzureRM: $(BACKEND_NAME)
+
+- stage: apply
+  displayName: terraform apply
+  dependsOn: plan
+  jobs:
+  - job: Manualvalidation
+    timeoutInMinutes: 90
+    displayName: Manual Validation
+    pool: server
+    steps:
+    - task: ManualValidation@0
+      inputs:
+        notifyUsers: 'durgesh.77.singh@outlook.com'
+        instructions: 'Pls validate terraform plan for dev_env'
+  - job: apply
+    displayName: terraform apply
+    steps:
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: $(WORK_DIR)
+        backendServiceArm: $(BACKEND_NAME)
+        backendAzureRmResourceGroupName: $(RESOURCE_GROUP)
+        backendAzureRmStorageAccountName: $(STORAGE_ACCOUNT)
+        backendAzureRmContainerName: $(CONTAINER_NAME)
+        backendAzureRmKey: $(FILE_KEY)
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'apply'
+        workingDirectory: $(WORK_DIR)
+        environmentServiceNameAzureRM: $(BACKEND_NAME)
